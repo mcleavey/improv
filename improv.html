@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Idea Generator</title>
+	<link rel="stylesheet" type="text/css" href="circles.css">
+	<!-- Load the Paper.js library -->
+<script type="text/javascript" src="docs/assets/js/paper.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.0.3/howler.core.min.js"></script>
+<!-- Define inlined PaperScript associate it with myCanvas -->
+<script type="text/paperscript" canvas="myCanvas">
+
+var values = {
+	paths: 50,
+	minPoints: 5,
+	maxPoints: 25,
+	minRadius: 150,
+	maxRadius: 250
+};
+
+var hitOptions = {
+	segments: true,
+	stroke: true,
+	fill: true,
+	tolerance: 5
+};
+
+var group = new Group();
+var itemDragged;
+createPaths('black');
+createBox();
+
+function createBox(){
+	
+	var rectangle = new Rectangle([(view.size.width * 0.35), (view.size.height * 0.35)], [view.size.width * 0.3, view.size.height * 0.3]);
+	var path = new Path.Rectangle(rectangle);
+	path.strokeColor = 'black';
+	var lightness = .6;
+	var hue = 200;
+	path.fillColor = { hue: hue, saturation: 1, lightness: lightness };
+	path.name = 'box';
+	group.addChild(path);
+}
+
+
+function createPaths(stroke_color) {
+	var radiusDelta = values.maxRadius - values.minRadius;
+	var pointsDelta = values.maxPoints - values.minPoints;
+	for (var i = 0; i < values.paths; i++) {
+		var radius = values.minRadius + Math.random() * radiusDelta;
+		var points = values.minPoints + Math.floor(Math.random() * pointsDelta);
+		var path = createBlob(randomDonut(), radius, points);
+		var lightness = (Math.random() - 0.5) * 0.4 + 0.4;
+		var hue = Math.random() * 360;
+		path.fillColor = { hue: hue, saturation: 1, lightness: lightness };
+		path.strokeColor = stroke_color;
+	};
+}
+
+function randomDonut(){
+	
+	var rand = 	Math.random() * (.45 - .25) + .3;
+	var sign =  Math.pow(-1, Math.floor(Math.random() * 2));
+	var pt = new Point(view.size.width * rand * sign, 0);
+	pt += view.center;
+	console.log("Before: "+pt);
+	pt = pt.rotate(Math.random()*180, view.center);
+	console.log("After rotation "+pt);
+	return pt;
+}
+
+function createBlob(center, maxRadius, points) {
+	var path = new Path();
+	path.closed = true;
+	for (var i = 0; i < points; i++) {
+		var delta = new Point({
+			length: (maxRadius * 0.5) + (Math.random() * maxRadius * 0.5),
+			angle: (360 / points) * i
+		});
+		path.add(center + delta);
+	}
+	path.smooth();
+	return path;
+}
+
+var segment, path;
+var movePath = false;
+function onMouseDown(event) {
+	segment = path = null;
+	var hitResult = project.hitTest(event.point, hitOptions);
+	if (!hitResult)
+		return;
+
+	if (event.modifiers.shift) {
+		if (hitResult.type == 'segment') {
+			hitResult.segment.remove();
+		};
+		return;
+	}
+
+	if (hitResult) {
+		path = hitResult.item;
+		if (path == group.children['box']) {return;}
+		if (hitResult.type == 'segment') {
+			segment = hitResult.segment;
+		} else if (hitResult.type == 'stroke') {
+			var location = hitResult.location;
+			segment = path.insert(location.index + 1, event.point);
+			path.smooth();
+		}
+	}
+
+	movePath = hitResult.type == 'fill';
+	if (movePath)
+		project.activeLayer.addChild(hitResult.item);
+}
+
+function onMouseMove(event) {
+	project.activeLayer.selected = false;
+	project.activeLayer.strokeColor = 'black';
+
+	if (event.item)
+		event.item.strokeColor = 'white';
+}
+
+var currentColor = null;
+
+function onMouseDrag(event) {
+	if (path == group.children['box']) {return;}
+	if (path == text) {return;}
+	if (segment) {
+		segment.point += event.delta;
+		path.smooth();
+	} else if (path) {
+		console.log("test intersect");
+		path.position += event.delta;
+		if (path.intersects(group.children['box'])) {
+		    if (!currentColor) {currentColor = path.fillColor;}
+			path.fillColor = 'yellow';
+		} else {
+			if (path.fillColor == 'yellow'){
+			path.fillColor = currentColor;
+			currentColor = null;
+			}
+		}
+	}
+}
+
+function onMouseUp(event){
+	if (path) {
+		console.log("test intersect");
+		if (path.intersects(group.children['box'])) {
+			path.scale(.002);
+			console.log(Math.floor(Math.random())+ " and "+ Adjectives.length);
+			if (changeAdj){
+				Adjective = Adjectives[Math.floor(Math.random() * Adjectives.length)];
+			} else {
+				Noun = Nouns[Math.floor(Math.random() * Nouns.length)];
+			}
+			changeAdj = !changeAdj;
+			updateText();
+		}
+	}	
+}
+
+var changeAdj = true; 
+var Adjective = '';
+var Adjectives = ['Happy', 'Sad', 'Worried', 'Mad', 'Frantic', 'Jealous', 'Distraught', 'Proud', 'Excited', 'Funny', 'Lazy', 'Impatient', 'Elegant', 'Silly', 'Angry', 'Slow', 'Speedy', 'Calm', 'Agitated'];
+var Noun = '';
+var Nouns = ['Train', 'Dog', 'Monkey', 'Elephant', 'Doll', 'Shoe', 'Toenail', 'Piano', 'Wizard', 'Cloud', 'Teacher', 'Girl', 'Boy', 'Dinosaur', 'Racecar', 'Mushroom', 'Flower', 
+'Giant', 'Snake', 'Bumblebee', 'Dumptruck', 'Party'];
+var Sounds = ['bubbles', 'clay', 'confetti', 'corona', 'dotted-spiral', 'flash-1', 'flash-2', 'flash-3', 'glimmer', 'moon', 'pinwheel', 'piston-1', 'piston-2', 'piston-3', 'prism-1', 'prism-2', 'prism-3', 'splits', 'squiggle', 'strike', 'suspension', 'timer', 'ufo', 'veil', 'wipe', 'zig-zag'];
+
+ var text = new PointText({
+	point: view.center,
+	content: 'Pick 2 cards and drag them here.\nThen make up a song!',
+	justification: 'center',
+	fontSize: 25
+});
+
+function updateText(){
+	text.content = Adjective + ' ' + Noun;
+	text.fontSize = 40;
+	var sound = new Howl({ src: ['audio/'+Sounds[Math.floor(Math.random()*Sounds.length)]+'.mp3']});
+	sound.play();
+}
+	</script>
+
+
+</head>
+<body>
+<h1 id = "instructions">Random Song Generator</h1>
+<canvas id="myCanvas" resize></canvas>
+
+<script type="text/javascript" src="circle.js">	</script>
+</body>
+</html>
